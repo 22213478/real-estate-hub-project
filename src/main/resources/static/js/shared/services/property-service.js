@@ -248,6 +248,52 @@ export class PropertyService {
       throw error;
     }
   }
+
+  /**
+   * 전체 매물 목록 조회 (페이징)
+   * @param {Object} params - 조회 파라미터
+   * @param {number} params.page - 페이지 번호 (0부터 시작)
+   * @param {number} params.size - 페이지 크기
+   * @param {string} params.sort - 정렬 (예: "createdAt,desc")
+   * @param {string} params.status - 상태 필터 (AVAILABLE, PENDING, SOLD)
+   * @param {string} params.listingType - 등록 유형 (OWNER, BROKER)
+   * @returns {Promise<Array>}
+   */
+  async fetchPropertyList({ page = 0, size = 20, sort = 'createdAt,desc', status, listingType } = {}) {
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        size: size.toString(),
+        sort
+      });
+      
+      if (status) params.append('status', status);
+      if (listingType) params.append('listingType', listingType);
+
+      const response = await fetch(`${this.apiBaseUrl}/api/properties?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this._authHeaders()
+        }
+      });
+
+      if (response.status === 401) {
+        throw new Error('Unauthorized');
+      }
+
+      if (!response.ok) {
+        throw new Error('매물 목록 조회 실패');
+      }
+
+      const data = await response.json();
+      // Page 형식이므로 content 배열 반환
+      return data?.content ?? [];
+    } catch (error) {
+      console.error('매물 목록 조회 오류:', error);
+      throw error;
+    }
+  }
 }
 
 // 전역 싱글톤 인스턴스 생성 (선택사항)
@@ -260,4 +306,8 @@ export async function fetchPropertiesInBounds(params) {
 
 export async function fetchPropertyDetail(id) {
   return propertyService.fetchPropertyDetail(id);
+}
+
+export async function fetchPropertyList(params) {
+  return propertyService.fetchPropertyList(params);
 }

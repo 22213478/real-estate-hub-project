@@ -1,5 +1,10 @@
 // js/app-init.js
 
+
+import { propertyService, fetchPropertyList } from '../../shared/services/property-service.js';
+import { toCardModel } from '../../shared/services/property-adapter.js';
+
+
 document.addEventListener("DOMContentLoaded", () => {
   // --- DOM 요소 ---
   const propertyList = document.getElementById("property-list");
@@ -195,25 +200,104 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // --- 초기 렌더링 ---
-  function initialRender() {
-    // 메인 페이지 매물 목록 렌더링
-    if (
-      propertyList &&
-      recommendedList &&
-      typeof properties !== "undefined" &&
-      typeof createPropertyCard === "function"
-    ) {
-      properties.forEach((prop) => {
-        const cardHTML = createPropertyCard(prop);
-        if (prop.isRecommended) {
-          recommendedList.innerHTML += cardHTML;
-        } else {
-          propertyList.innerHTML += cardHTML;
+    // --- DB에서 매물 목록 로드 및 렌더링 ---
+    async function loadAndRenderProperties() {
+        try {
+            console.log('DB에서 매물 목록을 로드하는 중...');
+            
+            // DB에서 매물 목록 조회
+            const propertyDtos = await fetchPropertyList({
+                page: 0,
+                size: 20,
+                sort: 'createdAt,desc',
+                status: 'AVAILABLE'
+            });
+            
+            console.log('로드된 매물 수:', propertyDtos.length);
+            
+            if (propertyDtos.length === 0) {
+                console.log('매물이 없습니다. 더미 데이터를 사용합니다.');
+                // 더미 데이터로 폴백
+                if (typeof properties !== 'undefined' && typeof createPropertyCard === 'function') {
+                    properties.forEach((prop) => {
+                        const cardHTML = createPropertyCard(prop);
+                        if (prop.isRecommended) {
+                            recommendedList.innerHTML += cardHTML;
+                        } else {
+                            propertyList.innerHTML += cardHTML;
+                        }
+                    });
+                }
+                return;
+            }
+            
+            // offers가 있는 매물만 필터링 (offers가 없으면 거래 불가능)
+            const validProperties = propertyDtos.filter(property => 
+                property.offers && property.offers.length > 0
+            );
+            
+            console.log(`유효한 매물 수: ${validProperties.length} (전체: ${propertyDtos.length})`);
+            
+            if (validProperties.length === 0) {
+                console.log('거래 가능한 매물이 없습니다. 더미 데이터를 사용합니다.');
+                // 더미 데이터로 폴백
+                if (typeof properties !== 'undefined' && typeof createPropertyCard === 'function') {
+                    properties.forEach((prop) => {
+                        const cardHTML = createPropertyCard(prop);
+                        if (prop.isRecommended) {
+                            recommendedList.innerHTML += cardHTML;
+                        } else {
+                            propertyList.innerHTML += cardHTML;
+                        }
+                    });
+                }
+                return;
+            }
+            
+            // DB 데이터를 카드 모델로 변환
+            const cardModels = validProperties.map(toCardModel);
+            
+            // 카드 렌더링
+            if (propertyList && recommendedList && typeof createPropertyCard === 'function') {
+                // 기존 내용 초기화
+                propertyList.innerHTML = '';
+                recommendedList.innerHTML = '';
+                
+                cardModels.forEach((prop) => {
+                    const cardHTML = createPropertyCard(prop);
+                    if (prop.isRecommended) {
+                        recommendedList.innerHTML += cardHTML;
+                    } else {
+                        propertyList.innerHTML += cardHTML;
+                    }
+                });
+                
+                console.log('매물 카드 렌더링 완료');
+            }
+            
+        } catch (error) {
+            console.error('매물 목록 로드 실패:', error);
+            
+            // 에러 시 더미 데이터로 폴백
+            if (typeof properties !== 'undefined' && typeof createPropertyCard === 'function') {
+                console.log('더미 데이터로 폴백합니다.');
+                properties.forEach((prop) => {
+                    const cardHTML = createPropertyCard(prop);
+                    if (prop.isRecommended) {
+                        recommendedList.innerHTML += cardHTML;
+                    } else {
+                        propertyList.innerHTML += cardHTML;
+                    }
+                });
+            }
         }
-      });
     }
-  }
+
+    // --- 초기 렌더링 ---
+    function initialRender() {
+        // DB에서 매물 목록 로드
+        loadAndRenderProperties();
+    }
 
   initialRender();
 });
