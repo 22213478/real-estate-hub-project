@@ -5,15 +5,16 @@ import { propertyService, fetchPropertyList } from '../../shared/services/proper
 import { toCardModel } from '../../shared/services/property-adapter.js';
 
 
-document.addEventListener("DOMContentLoaded", () => {
-  // --- DOM 요소 ---
-  const propertyList = document.getElementById("property-list");
-  const recommendedList = document.getElementById("recommended-list");
-  const favoriteList = document.getElementById("favorite-list");
-  const compareList = document.getElementById("compare-list");
-  const notificationList = document.getElementById("notification-list");
-  const chatListContainer = document.getElementById("chat-list");
-  const profilePanel = document.getElementById("profile-panel");
+document.addEventListener('DOMContentLoaded', () => {
+
+    // --- DOM 요소 ---
+    const propertyList = document.getElementById("property-list");
+    const recommendedList = document.getElementById("recommended-list");
+    const favoriteList = document.getElementById("favorite-list");
+    const compareList = document.getElementById("compare-list");
+    const notificationList = document.getElementById("notification-list");
+    const chatListContainer = document.getElementById("chat-list");
+    const profilePanel = document.getElementById("profile-panel");
 
   // --- 내 매물 관리 스크립트는 이미 loginO.html에서 로드됨 ---
   // property-management.js는 loginO.html의 <script src="js/regular/main/property-management.js"></script>에서 이미 로드됨
