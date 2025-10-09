@@ -8,8 +8,11 @@
  * @returns {Object} createPropertyCard가 기대하는 형식
  */
 export function toCardModel(propertyDto) {
-    // 활성화된 offer 찾기 (isActive가 true인 것, 없으면 첫 번째)
-    const activeOffer = propertyDto.offers?.find(offer => offer.isActive) || propertyDto.offers?.[0];
+    // 유효한 offers만 필터링 (타입별 필수 가격 필드 체크)
+    const validOffers = propertyDto.offers?.filter(offer => isValidOffer(offer)) || [];
+    
+    // 활성화된 유효한 offer 찾기 (isActive가 true인 것, 없으면 첫 번째 유효한 offer)
+    const activeOffer = validOffers.find(offer => offer.isActive) || validOffers[0];
     
     // 가격 텍스트 생성
     const priceText = formatPrice(activeOffer);
@@ -53,10 +56,35 @@ export function toCardModel(propertyDto) {
 }
 
 /**
+ * offer의 유효성 검사 (타입별 필수 가격 필드 체크)
+ */
+function isValidOffer(offer) {
+    if (!offer || !offer.type) return false;
+    
+    const { type, totalPrice, deposit, monthlyRent } = offer;
+    
+    // 매매: total_price 필수
+    if (type === 'SALE') {
+        return totalPrice != null && Number(totalPrice) > 0;
+    }
+    // 전세: deposit 필수
+    else if (type === 'JEONSE') {
+        return deposit != null && Number(deposit) > 0;
+    }
+    // 월세: deposit + monthly_rent 필수
+    else if (type === 'WOLSE') {
+        return deposit != null && Number(deposit) >= 0 && 
+               monthlyRent != null && Number(monthlyRent) > 0;
+    }
+    
+    return false;
+}
+
+/**
  * 가격 텍스트 포맷팅
  */
 function formatPrice(offer) {
-    if (!offer) return '';
+    if (!offer) return '내용 없음';
     
     const { type, totalPrice, deposit, monthlyRent } = offer;
     
@@ -70,7 +98,7 @@ function formatPrice(offer) {
         return `월세 ${depositText}/${monthlyText}`;
     }
     
-    return '';
+    return '내용 없음';
 }
 
 /**
@@ -110,6 +138,9 @@ function formatDetails(propertyDto, offer) {
             'ONE': '원룸'
         };
         parts.push(typeMap[offer.housetype] || offer.housetype);
+    } else {
+        // offer가 없을 때 기본 정보
+        parts.push('정보 없음');
     }
     
     // 방 수 (offers에서 추출 - 실제로는 별도 필드가 있을 수 있음)

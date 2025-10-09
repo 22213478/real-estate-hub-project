@@ -12,10 +12,17 @@
 
     const qs = (sel) => document.querySelector(sel);
 
-    // 전역 properties 접근: data.js의 const properties 직접 사용
+    // 전역 properties 접근: DB에서 로드된 properties 또는 더미 데이터
     function getProperties(){
-        try { 
-            if (typeof properties !== 'undefined' && Array.isArray(properties)) return properties; 
+        try {
+            // 먼저 DB에서 로드된 데이터 확인
+            if (typeof window.loadedProperties !== 'undefined' && Array.isArray(window.loadedProperties)) {
+                return window.loadedProperties;
+            }
+            // 폴백: 더미 데이터
+            if (typeof properties !== 'undefined' && Array.isArray(properties)) {
+                return properties;
+            }
         } catch(_e){}
         return undefined;
     }
@@ -26,11 +33,11 @@
         const city = p.city ?? p.si ?? '';
         const district = p.district ?? p.gu ?? p.gun ?? '';
         const dong = p.dong ?? p.town ?? '';
-        const locationText = (p.location ?? `${city} ${district} ${dong}`).trim();
+        const locationText = ((p.location ?? `${city} ${district} ${dong}`).trim()) || '내용 없음';
         let areaM2 = p.areaM2 ?? p.area ?? p.sizeM2 ?? '';
         let rooms = p.rooms ?? p.roomCount ?? p.bedrooms ?? '';
         let type = p.type ?? p.houseType ?? p.category ?? '';
-        const detailsText = p.details ?? [type, rooms ? `방 ${rooms}개` : '', areaM2 ? `${areaM2}m²` : ''].filter(Boolean).join(' ∙ ');
+        const detailsText = p.details ?? ([type, rooms ? `방 ${rooms}개` : '', areaM2 ? `${areaM2}m²` : ''].filter(Boolean).join(' ∙ ') || '내용 없음');
         // details에서 보조 파싱
         if(!areaM2 && typeof detailsText === 'string'){
             const m = detailsText.match(/([0-9]+(?:\.[0-9]+)?)\s*m²/);
@@ -51,18 +58,18 @@
         const image = p.image ?? images[0] ?? '';
         const optionsArr = p.options ?? p.tags ?? [];
         const title = p.title ?? p.name ?? '';
-        const price = p.priceText ?? p.price ?? '';
-        const description = p.description ?? p.memo ?? '';
+        const price = p.priceText ?? p.price ?? '내용 없음';
+        const description = p.description ?? p.memo ?? '내용 없음';
         const id = p.id ?? p.propertyId ?? p.pid ?? undefined;
-        const buildingYear = p.buildingYear ?? p.buildYear ?? undefined;
+        const buildingYear = p.buildingYear ?? p.buildYear ?? '';
         const bath = p.bathrooms ?? p.baths ?? p.bath ?? '';
         const direction = p.direction ?? '';
         const parkingText = p.parkingText ?? (p.parking != null ? String(p.parking) : '');
         const moveInDate = p.moveInDate ?? p.availableDate ?? '';
-        const areaText = areaM2 ? `${areaM2} m²` : '';
-        const roomBathText = rooms || bath ? `방 ${rooms || '-'}개 / 욕실 ${bath || '-'}` : '';
-        const brokerName = p.brokerName ?? '';
-        const brokerPhone = p.brokerPhone ?? '';
+        const areaText = areaM2 ? `${areaM2} m²` : '내용 없음';
+        const roomBathText = rooms || bath ? `방 ${rooms || '-'}개 / 욕실 ${bath || '-'}` : '내용 없음';
+        const brokerName = p.brokerName ?? '내용 없음';
+        const brokerPhone = p.brokerPhone ?? '내용 없음';
         const isApartment = (type === '아파트') || (typeof detailsText === 'string' && detailsText.includes('아파트'));
         return { id, image, title, location: locationText, price, details: detailsText, options: optionsArr, description, status, statusText, buildingYear, direction, areaText, roomBathText, parkingText, moveInDate, brokerName, brokerPhone, isApartment };
     }
@@ -87,13 +94,16 @@
 
     function setOverlayVisible(el, visible){
         if(!el) return;
+        
         if(visible){
             el.style.opacity = '1';
             el.style.pointerEvents = 'auto';
+            el.style.transform = 'translateX(0)';
             el.classList.remove('-translate-x-full');
         }else{
             el.style.opacity = '0';
             el.style.pointerEvents = 'none';
+            // transform은 CSS 애니메이션을 위해 건드리지 않음
             el.classList.add('-translate-x-full');
         }
     }
@@ -140,12 +150,12 @@
         
         // buildingYear - f311d46 방식
         const buildYearEl = qs(`#detail-building-year-${suffix}`);
-        if(buildYearEl) buildYearEl.textContent = (d.buildingYear || '') + '년';
+        if(buildYearEl) buildYearEl.textContent = d.buildingYear ? d.buildingYear + '년' : '내용 없음';
         
         // area - f311d46 방식: details.split(' ∙ ')[3]
         const areaEl = qs(`#detail-property-area-${suffix}`);
         if(areaEl) {
-            const areaText = (d.details || '').split(' ∙ ')[3] || '';
+            const areaText = (d.details || '').split(' ∙ ')[3] || '내용 없음';
             areaEl.textContent = areaText;
         }
         
@@ -153,8 +163,8 @@
         
         const brokerName = qs(`#detail-broker-name-${suffix}`);
         const brokerPhone = qs(`#detail-broker-phone-${suffix}`);
-        if(brokerName) brokerName.textContent = d.brokerName || '';
-        if(brokerPhone) brokerPhone.textContent = d.brokerPhone || '';
+        if(brokerName) brokerName.textContent = d.brokerName || '내용 없음';
+        if(brokerPhone) brokerPhone.textContent = d.brokerPhone || '내용 없음';
 
         // 평면도(임시) 노출: details의 첫 항목이 '아파트'인 경우만 보이기 - f311d46 방식
         const isApartment = (d.details || '').split(' ∙ ')[0] === '아파트';
@@ -163,20 +173,20 @@
             floorplanWrapper.style.display = isApartment ? 'block' : 'none';
         }
 
-        // 임시 상세 항목들: 비워둠 - f311d46 방식
-        const emptyFields = [
-            `detail-room-bath-${suffix}`,
-            `detail-direction-${suffix}`,
-            `detail-room-structure-${suffix}`,
-            `detail-duplex-${suffix}`,
-            `detail-parking-${suffix}`,
-            `detail-move-in-date-${suffix}`,
-            `detail-maintenance-fee-${suffix}`,
-            `detail-household-count-${suffix}`
+        // 상세 항목들 - 내용 없음으로 표시
+        const fieldsToFill = [
+            { id: `detail-room-bath-${suffix}`, value: d.roomBathText || '내용 없음' },
+            { id: `detail-direction-${suffix}`, value: d.direction || '내용 없음' },
+            { id: `detail-room-structure-${suffix}`, value: '내용 없음' },
+            { id: `detail-duplex-${suffix}`, value: '내용 없음' },
+            { id: `detail-parking-${suffix}`, value: d.parkingText || '내용 없음' },
+            { id: `detail-move-in-date-${suffix}`, value: d.moveInDate || '내용 없음' },
+            { id: `detail-maintenance-fee-${suffix}`, value: '내용 없음' },
+            { id: `detail-household-count-${suffix}`, value: '내용 없음' }
         ];
-        emptyFields.forEach(id => {
+        fieldsToFill.forEach(({ id, value }) => {
             const el = qs(`#${id}`);
-            if (el) el.textContent = '';
+            if (el) el.textContent = value;
         });
         
         // 상태 표시 - f311d46 방식
@@ -543,8 +553,6 @@
     }
 
     function openPropertyDetail(id, data){
-        // 같은 매물을 다시 클릭한 경우 (토글 동작) - f311d46 로직
-        // data가 있으면 data.id로 비교, 없으면 id로 비교
         const compareId = data?.id ?? id;
         if (currentId === compareId && isOpen) {
             closePropertyDetail();
@@ -559,20 +567,14 @@
 
         renderInto(nextBuf, incoming);
 
-        // 다음에 열릴 패널의 초기 상태를 강제 세팅하여
-        // 확장/복귀 시 남아있을 수 있는 inline 스타일 영향을 제거
-        if (nextElems.overlay) {
-            nextElems.overlay.classList.add('-translate-x-full');
-            nextElems.overlay.style.transform = '';
-            nextElems.overlay.style.transition = '';
-            nextElems.overlay.style.opacity = '0';
-            nextElems.overlay.style.pointerEvents = 'none';
-        }
-
+        if (!nextElems.overlay) return;
+        
         // 겹치기: 현재 닫히는 애니메이션 + 다음 열림 애니메이션 동시
         setOverlayVisible(nextElems.overlay, true);
+        
         if(isOpen && curElems.overlay){
-            // 현재를 닫는 모션을 위해 잠시 visible 유지 후 비활성
+            // 이전 overlay 닫기 애니메이션
+            curElems.overlay.style.transform = '';
             curElems.overlay.classList.add('-translate-x-full');
             setTimeout(() => setOverlayVisible(curElems.overlay, false), 300);
         }
@@ -605,10 +607,9 @@
 
         isOpen = true;
         window.isDetailOpen = true;
-        currentId = compareId; // data.id 또는 id 사용
+        currentId = compareId;
         currentBuffer = nextBuf;
 
-        // 우측 패널/필터 위치 조정 필요 시 호출
         if(typeof window.adjustAllFilterDropdownPosition === 'function'){
             setTimeout(() => window.adjustAllFilterDropdownPosition(), 300);
         }
@@ -621,6 +622,8 @@
             if(curElems.overlay.__isFullscreen) {
                 collapsePropertyDetailFromFullscreen();
             }
+            // 애니메이션을 위해 transform 제거 후 클래스 추가
+            curElems.overlay.style.transform = '';
             curElems.overlay.classList.add('-translate-x-full');
             setTimeout(() => setOverlayVisible(curElems.overlay, false), 300);
         }
@@ -720,7 +723,10 @@
     }
 
     function attachDelegatedClick(container){
-        if(!container) return;
+        if(!container || container.__clickEventBound) return;
+        
+        container.__clickEventBound = true;
+        
         container.addEventListener('click', (e) => {
             // 매물 카드 찾기 (data-property-id 속성 또는 클래스 기반)
             let propertyCard;
@@ -730,10 +736,12 @@
             } else {
                 propertyCard = e.target.closest('[data-property-id], .bg-white.rounded-lg.shadow-md');
             }
+            
             if(!propertyCard) return;
             
             // 이벤트 버블링 방지
             e.stopPropagation();
+            e.preventDefault();
             
             let data;
             let originalIndex = 0;
@@ -742,7 +750,8 @@
             if(propertyCard.hasAttribute('data-property-id')){
                 const propertyId = parseInt(propertyCard.getAttribute('data-property-id'));
                 const list = getProperties();
-                data = Array.isArray(list) ? list[propertyId] : undefined;
+                // ID로 매물 찾기 (인덱스가 아닌 실제 property ID 사용)
+                data = Array.isArray(list) ? list.find(p => p.id === propertyId) : undefined;
             } else {
                 // 클래스 기반으로 찾기 (비교 그룹 등)
                 if(container.id === 'compare-list'){
@@ -796,16 +805,39 @@
         });
     }
 
+    // 클릭 이벤트 바인딩 함수를 전역으로 노출
+    function attachPropertyCardClickEvents() {
+        const recommendedList = qs('#recommended-list');
+        const propertyList = qs('#property-list');
+        const compareList = qs('#compare-list');
+        
+        if (recommendedList) attachDelegatedClick(recommendedList);
+        if (propertyList) attachDelegatedClick(propertyList);
+        if (compareList) attachDelegatedClick(compareList);
+    }
+    
     document.addEventListener('DOMContentLoaded', () => {
-        // 상세 패널 초기화 및 클릭 바인딩(위임)
         initPropertyDetailPanel();
-        attachDelegatedClick(qs('#recommended-list'));
-        attachDelegatedClick(qs('#property-list'));
-        // favorite-list는 백엔드 DB 연동 예정이므로 제외
-        attachDelegatedClick(qs('#compare-list'));
+        
+        // DB 데이터 로드를 기다림 (최대 5초)
+        const waitAndAttach = (attempts = 0) => {
+            if (attempts > 50) return;
+            
+            const propertyList = qs('#property-list');
+            const recommendedList = qs('#recommended-list');
+            
+            if (propertyList?.children.length > 0 || recommendedList?.children.length > 0) {
+                attachPropertyCardClickEvents();
+            } else {
+                setTimeout(() => waitAndAttach(attempts + 1), 100);
+            }
+        };
+        
+        waitAndAttach();
     });
-
-    // 공개 API
+    
+    // 전역으로 노출
+    window.attachPropertyCardClickEvents = attachPropertyCardClickEvents;
     window.initPropertyDetailPanel = initPropertyDetailPanel;
     window.openPropertyDetail = openPropertyDetail;
     window.closePropertyDetail = closePropertyDetail;

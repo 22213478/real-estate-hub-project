@@ -130,7 +130,7 @@ function createPropertyCard(property) {
         .join("");
 
     return `
-            <div class="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:scale-[1.02]">
+            <div class="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:scale-[1.02]" data-property-id="${property.id || ''}">
                 <div class="relative">
                     <img src="${property.image}" alt="매물 사진" class="w-full h-40 object-cover">
                     <button class="absolute top-2 right-2 bg-white/70 p-1.5 rounded-full hover:bg-white">
